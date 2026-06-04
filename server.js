@@ -6,7 +6,6 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
-const { globalApiLimiter } = require("./middleware/security");
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("..//server/routers/auth.router");
 const leadRoutes = require("./routers/lead.router");
@@ -31,6 +30,26 @@ const whatsappWebhookRoutes =
   const adminPlanRoutes = require("./routers/adminPlan.router");
   const activityLogRoutes = require("./routers/activityLog.router");
 
+
+
+  const sanitize = (req, res, next) => {
+    if (req.body) {
+      mongoSanitize.sanitize(req.body, {
+        replaceWith: "_",
+        allowDots: true,
+      });
+    }
+  
+    if (req.params) {
+      mongoSanitize.sanitize(req.params, {
+        replaceWith: "_",
+        allowDots: true,
+      });
+    }
+  
+    // Do NOT sanitize req.query directly
+    next();
+  };
 // Middleware
 app.use(helmet());
 app.use(
@@ -41,8 +60,7 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
-app.use(mongoSanitize());
-app.use("/api", globalApiLimiter);
+app.use(sanitize);
 app.use("/api/tenant",require("../server/routers/tenant.router"))
 app.use("/api/auth", authRoutes);
 const userRoutes = require("../server/routers/user.router");
