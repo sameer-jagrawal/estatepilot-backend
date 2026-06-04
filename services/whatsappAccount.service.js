@@ -1,4 +1,4 @@
-const WhatsAppAccountModel = require("../models/WhatsAppAccountModel");
+const WhatsAppAccountModel = require("../models/whatsappAccountModel");
 
 const connectWhatsAppAccount = async (data) => {
   const existingAccount = await WhatsAppAccountModel.findOne({
