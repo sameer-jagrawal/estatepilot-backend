@@ -33,8 +33,7 @@ const whatsappWebhookRoutes =
   const activityLogRoutes = require("./routers/activityLog.router");
   const userRoutes = require("./routers/user.router");
 
-
-
+ 
   const sanitize = (req, res, next) => {
     if (req.body) {
       mongoSanitize.sanitize(req.body, {
@@ -91,11 +90,13 @@ app.use(errorHandler);
 
 
 // Database connection
+app.get("/", (req, res) => {
+  res.send("EstatePilot Backend API is running");
+});
 mongoose
   .connect(process.env.MONGO_DB_URL)
   .then(() => {
     console.log("Database connected");
-
     app.listen(process.env.PORT || 5000, () => {
       console.log(`Server is running on port ${process.env.PORT || 5000}`);
     });
