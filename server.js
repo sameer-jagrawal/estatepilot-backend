@@ -31,6 +31,7 @@ const whatsappWebhookRoutes =
   const adminTenantRoutes = require("./routers/adminTenant.router");
   const adminPlanRoutes = require("./routers/adminPlan.router");
   const activityLogRoutes = require("./routers/activityLog.router");
+  const userRoutes = require("./routers/user.router");
 
 
 
@@ -63,9 +64,8 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(sanitize);
-app.use("/api/tenant",require("../server/routers/tenant.router"))
+app.use("/api/tenant",require("./routers/tenant.router"))
 app.use("/api/auth", authRoutes);
-const userRoutes = require("../server/routers/user.router");
 app.use("/api/user", userRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
