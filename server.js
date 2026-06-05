@@ -4,9 +4,11 @@ dns.setDefaultResultOrder("ipv4first");
 const mongoose = require("mongoose");
 require("dotenv").config();
 const app = express();
+app.set("trust proxy", 1);
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
+const compression = require("compression");
 const mongoSanitize = require("express-mongo-sanitize");
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routers/auth.router");
@@ -53,13 +55,54 @@ const whatsappWebhookRoutes =
     next();
   };
 // Middleware
-app.use(helmet());
 app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true,
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https:"],
+      },
+    },
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    frameguard: { action: "deny" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
+app.use(compression());
+
+const allowedOrigins = new Set(
+  [
+    "http://localhost:3000",
+    "https://estatepilot-frontend.vercel.app",
+    process.env.CLIENT_URL,
+    ...(process.env.CORS_ORIGINS || "").split(","),
+  ]
+    .map((origin) => origin && origin.trim())
+    .filter(Boolean)
+);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(sanitize);
