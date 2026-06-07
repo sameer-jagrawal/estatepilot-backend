@@ -57,6 +57,17 @@ const validations = {
     body("otp").trim().isLength({ min: 6, max: 6 }).isNumeric().withMessage("OTP must be 6 digits"),
   ]),
 
+  forgotPassword: validate([
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  ]),
+
+  resetPassword: validate([
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("token").trim().isLength({ min: 32 }).withMessage("Valid reset token is required"),
+    body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+    body("confirmPassword").isLength({ min: 6 }).withMessage("Confirm password must be at least 6 characters"),
+  ]),
+
   userCreate: validate([
     requiredString("name"),
     body("email").optional({ nullable: true, checkFalsy: true }).isEmail().normalizeEmail().withMessage("Valid email is required"),

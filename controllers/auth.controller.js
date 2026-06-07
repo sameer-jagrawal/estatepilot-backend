@@ -4,6 +4,7 @@ const userService = require("../services/user.service");
 const {
   sendSuccess,
   sendUnauthorized,
+  sendBadRequest,
   sendServerError,
 } = require("../utils/response");
 const { cookieOptions } = require("../middleware/security");
@@ -63,8 +64,46 @@ const me = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    await authService.requestPasswordReset(req.body, process.env.CLIENT_URL);
+
+    return sendSuccess(
+      res,
+      "If an account exists for this email, a password reset link has been sent"
+    );
+  } catch (error) {
+    return sendServerError(res, error.message);
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { password, confirmPassword } = req.body;
+
+    if (password !== confirmPassword) {
+      return sendBadRequest(res, "Passwords do not match");
+    }
+
+    await authService.resetPassword(req.body);
+
+    res.clearCookie("token", cookieOptions);
+    res.clearCookie("role", cookieOptions);
+
+    return sendSuccess(res, "Password reset successfully");
+  } catch (error) {
+    if (error.message === "Invalid or expired reset link") {
+      return sendUnauthorized(res, error.message);
+    }
+
+    return sendServerError(res, error.message);
+  }
+};
+
 module.exports = {
   login,
   logout,
   me,
+  forgotPassword,
+  resetPassword,
 };

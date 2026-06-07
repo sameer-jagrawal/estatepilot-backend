@@ -139,26 +139,44 @@ const activateUser = async (req, res) => {
 
 const changeUserPassword = async (req, res) => {
   try {
-    if (req.user.role !== "owner") {
-      return sendForbidden(res, "Only owner can change user passwords");
-    }
+    const isSelfChange = String(req.user.userId) === String(req.params.userId);
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
-    const { newPassword } = req.body;
+    if (!isSelfChange && req.user.role !== "owner") {
+      return sendForbidden(res, "Only owner can change other user passwords");
+    }
 
     if (!newPassword || newPassword.length < 6) {
       return sendForbidden(res, "Password must be at least 6 characters");
     }
 
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return sendForbidden(res, "Passwords do not match");
+    }
+
+    if (isSelfChange && !currentPassword) {
+      return sendForbidden(res, "Current password is required");
+    }
+
     const user = await userService.changeUserPassword(
       req.user.tenantId,
       req.params.userId,
-      newPassword
+      newPassword,
+      {
+        actorId: req.user.userId,
+        currentPassword: isSelfChange ? currentPassword : "",
+        requireCurrentPassword: isSelfChange,
+      }
     );
 
     return sendUpdate(res, "Password changed successfully", user);
   } catch (error) {
     if (error.message === "User not found") {
       return sendNotFound(res, error.message);
+    }
+
+    if (error.message === "Current password is incorrect") {
+      return sendForbidden(res, error.message);
     }
 
     return sendServerError(res, error.message);

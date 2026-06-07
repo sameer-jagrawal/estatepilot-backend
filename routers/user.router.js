@@ -55,7 +55,6 @@ router.patch(
 router.patch(
   "/:userId/change-password",
   tenantAuth,
-  authorizeRoles("owner"),
   validate.objectId("userId"),
   userController.changeUserPassword
 );

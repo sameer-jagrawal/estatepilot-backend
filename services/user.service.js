@@ -228,29 +228,32 @@ const activateUser = async (tenantId, userId) => {
   return user;
 };
 
-const changeUserPassword = async (tenantId, userId, newPassword) => {
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
+const changeUserPassword = async (tenantId, userId, newPassword, options = {}) => {
+  const userToUpdate = await UserModel.findOne({
+    _id: userId,
+    tenantId,
+  }).select("+password");
 
-  const user = await UserModel.findOneAndUpdate(
-    {
-      _id: userId,
-      tenantId,
-    },
-    {
-      password: hashedPassword,
-    },
-    {
-      new: true,
-    }
-  ).select("-password");
-
-  if (!user) {
+  if (!userToUpdate) {
     throw new Error("User not found");
   }
 
+  if (options.requireCurrentPassword) {
+    const isMatch = await bcrypt.compare(options.currentPassword || "", userToUpdate.password);
+    if (!isMatch) {
+      throw new Error("Current password is incorrect");
+    }
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  userToUpdate.password = hashedPassword;
+  await userToUpdate.save();
+  const user = await UserModel.findOne({ _id: userId, tenantId }).select("-password");
+
   await safeCreateActivityLog({
     tenantId,
-    userId: null,
+    userId: options.actorId || null,
     module: "user",
     action: "user_password_changed",
     description: `Password changed for user: ${user.name}`,
