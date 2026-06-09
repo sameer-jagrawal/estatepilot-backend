@@ -55,7 +55,18 @@ const loginSuperAdmin = async (data) => {
   };
 };
 
+const getSuperAdminById = async (adminId) => {
+  const admin = await SuperAdminModel.findById(adminId).select("-password");
+
+  if (!admin || !admin.isActive) {
+    throw new Error("Invalid admin account");
+  }
+
+  return admin;
+};
+
 module.exports = {
   createSuperAdmin,
   loginSuperAdmin,
+  getSuperAdminById,
 };

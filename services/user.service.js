@@ -1,8 +1,19 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const UserModel = require("../models/UserModel");
 const TenantModel = require("../models/TenantModel");
+const UserVerificationOtpModel = require("../models/UserVerificationOtpModel");
 const activityLogService = require("./activityLog.service");
+const { sendOtpEmail } = require("../utils/email.service");
+
+const OTP_EXPIRES_MS = 5 * 60 * 1000;
+const OTP_RESEND_MS = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const hashOtp = (otp) => crypto.createHash("sha256").update(otp).digest("hex");
 
 const safeCreateActivityLog = async (logData) => {
   try {
@@ -48,7 +59,16 @@ const createUser = async (data) => {
   const user = await UserModel.create({
     ...data,
     password: hashedPassword,
+    isVerified: false,
   });
+
+  if (user.email) {
+    await createAndSendVerificationOtp({
+      tenantId: user.tenantId,
+      userId: user._id,
+      force: true,
+    });
+  }
 
   await safeCreateActivityLog({
     tenantId: user.tenantId,
@@ -62,6 +82,123 @@ const createUser = async (data) => {
       name: user.name,
       email: user.email,
       phone: user.phone,
+      role: user.role,
+    },
+  });
+
+  const sanitizedUser = user.toObject();
+  delete sanitizedUser.password;
+
+  return sanitizedUser;
+};
+
+const createAndSendVerificationOtp = async ({ tenantId, userId, force = false }) => {
+  const user = await UserModel.findOne({
+    _id: userId,
+    tenantId,
+  }).select("-password");
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (!user.email) {
+    throw new Error("User email is required");
+  }
+
+  if (user.isVerified) {
+    throw new Error("User already verified");
+  }
+
+  const existingOtp = await UserVerificationOtpModel.findOne({ tenantId, userId });
+  const now = new Date();
+
+  if (!force && existingOtp && existingOtp.resendAvailableAt > now) {
+    throw new Error("Please wait before requesting another OTP");
+  }
+
+  const otp = generateOtp();
+
+  await UserVerificationOtpModel.findOneAndUpdate(
+    { tenantId, userId },
+    {
+      tenantId,
+      userId,
+      email: user.email,
+      otpHash: hashOtp(otp),
+      expiresAt: new Date(Date.now() + OTP_EXPIRES_MS),
+      resendAvailableAt: new Date(Date.now() + OTP_RESEND_MS),
+      attempts: 0,
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  try {
+    await sendOtpEmail(user.email, otp, {
+      toName: user.name,
+      subject: "Verify your EstatePilot user account",
+      purpose: `the account created for ${user.name}`,
+      expiresIn: "5 minutes",
+    });
+  } catch (error) {
+    await UserVerificationOtpModel.findOneAndDelete({ tenantId, userId });
+    throw error;
+  }
+
+  return user;
+};
+
+const verifyUserOtp = async ({ tenantId, userId, otp, actorId = null }) => {
+  const user = await UserModel.findOne({
+    _id: userId,
+    tenantId,
+  }).select("-password");
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (user.isVerified) {
+    return user;
+  }
+
+  const otpRecord = await UserVerificationOtpModel.findOne({ tenantId, userId });
+
+  if (!otpRecord) {
+    throw new Error("OTP not found or expired");
+  }
+
+  if (otpRecord.expiresAt < new Date()) {
+    await UserVerificationOtpModel.findByIdAndDelete(otpRecord._id);
+    throw new Error("OTP expired. Please request a new OTP.");
+  }
+
+  if (otpRecord.attempts >= OTP_MAX_ATTEMPTS) {
+    await UserVerificationOtpModel.findByIdAndDelete(otpRecord._id);
+    throw new Error("Too many attempts. Please request a new OTP.");
+  }
+
+  if (otpRecord.otpHash !== hashOtp(otp)) {
+    otpRecord.attempts += 1;
+    await otpRecord.save();
+    throw new Error("Invalid OTP");
+  }
+
+  user.isVerified = true;
+  await user.save();
+  await UserVerificationOtpModel.findByIdAndDelete(otpRecord._id);
+
+  await safeCreateActivityLog({
+    tenantId,
+    userId: actorId,
+    module: "user",
+    action: "user_verified",
+    description: `User verified: ${user.name}`,
+    entityType: "user",
+    entityId: user._id,
+    metadata: {
+      name: user.name,
+      email: user.email,
       role: user.role,
     },
   });
@@ -365,6 +502,8 @@ const unsuspendUser = async (
 
 module.exports = {
   createUser,
+  createAndSendVerificationOtp,
+  verifyUserOtp,
   getUsersByTenant,
   getUserById,
   updateUser,

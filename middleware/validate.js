@@ -44,6 +44,13 @@ const validations = {
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
   ]),
 
+  superAdminCreate: validate([
+    requiredString("name"),
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+    requiredString("secretKey"),
+  ]),
+
   tenantRegister: validate([
     requiredString("companyName"),
     requiredString("ownerName"),
@@ -70,10 +77,15 @@ const validations = {
 
   userCreate: validate([
     requiredString("name"),
-    body("email").optional({ nullable: true, checkFalsy: true }).isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
     body("phone").trim().matches(/^[0-9+\-\s()]{7,20}$/).withMessage("Valid phone is required"),
     body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
     body("role").optional().isIn(["owner", "manager", "agent"]).withMessage("Invalid role"),
+  ]),
+
+  userVerifyOtp: validate([
+    objectId("userId"),
+    body("otp").trim().isLength({ min: 6, max: 6 }).isNumeric().withMessage("OTP must be 6 digits"),
   ]),
 
   userUpdate: validate([

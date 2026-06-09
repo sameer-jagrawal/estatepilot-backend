@@ -5,9 +5,11 @@ const {
   sendCreated,
   sendUpdate,
   sendDelete,
+  sendBadRequest,
   sendConflict,
   sendForbidden,
   sendNotFound,
+  sendTooManyRequests,
   sendServerError,
 } = require("../utils/response");
 
@@ -183,6 +185,71 @@ const changeUserPassword = async (req, res) => {
   }
 };
 
+const sendVerificationOtp = async (req, res) => {
+  try {
+    if (req.user.role !== "owner" && req.user.role !== "manager") {
+      return sendForbidden(res, "You are not allowed to verify users");
+    }
+
+    const user = await userService.createAndSendVerificationOtp({
+      tenantId: req.user.tenantId,
+      userId: req.params.userId,
+    });
+
+    return sendSuccess(res, "Verification OTP sent successfully", {
+      _id: user._id,
+      email: user.email,
+      isVerified: user.isVerified,
+    });
+  } catch (error) {
+    if (error.message === "User not found") {
+      return sendNotFound(res, error.message);
+    }
+
+    if (error.message === "User already verified") {
+      return sendBadRequest(res, error.message);
+    }
+
+    if (error.message === "Please wait before requesting another OTP") {
+      return sendTooManyRequests(res, error.message);
+    }
+
+    return sendServerError(res, error.message);
+  }
+};
+
+const verifyUserOtp = async (req, res) => {
+  try {
+    if (req.user.role !== "owner" && req.user.role !== "manager") {
+      return sendForbidden(res, "You are not allowed to verify users");
+    }
+
+    const user = await userService.verifyUserOtp({
+      tenantId: req.user.tenantId,
+      userId: req.params.userId,
+      otp: req.body.otp,
+      actorId: req.user.userId,
+    });
+
+    return sendUpdate(res, "User email verified successfully", user);
+  } catch (error) {
+    if (error.message === "User not found") {
+      return sendNotFound(res, error.message);
+    }
+
+    if (
+      error.message === "OTP not found or expired" ||
+      error.message === "OTP expired. Please request a new OTP." ||
+      error.message === "Too many attempts. Please request a new OTP." ||
+      error.message === "Invalid OTP"
+    ) {
+      return sendBadRequest(res, error.message);
+    }
+
+    return sendServerError(res, error.message);
+  }
+};
+
 
 const suspendUser = async (
   req,
@@ -287,6 +354,8 @@ const unsuspendUser = async (
 
 module.exports = {
   createUser,
+  sendVerificationOtp,
+  verifyUserOtp,
   getUsersByTenant,
   getUserById,
   updateUser,

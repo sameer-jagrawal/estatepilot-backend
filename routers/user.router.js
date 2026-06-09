@@ -28,6 +28,22 @@ router.get(
   userController.getUserById
 );
 
+router.post(
+  "/:userId/send-verification-otp",
+  tenantAuth,
+  authorizeRoles("owner", "manager"),
+  validate.objectId("userId"),
+  userController.sendVerificationOtp
+);
+
+router.post(
+  "/:userId/verify-otp",
+  tenantAuth,
+  authorizeRoles("owner", "manager"),
+  validate.userVerifyOtp,
+  userController.verifyUserOtp
+);
+
 router.patch(
   "/:userId",
   tenantAuth,

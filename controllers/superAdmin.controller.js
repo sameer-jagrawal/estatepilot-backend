@@ -72,8 +72,18 @@ const logoutSuperAdmin = async (req, res) => {
   return sendSuccess(res, "Super admin logout successful");
 };
 
+const me = async (req, res) => {
+  try {
+    const admin = await superAdminService.getSuperAdminById(req.admin.adminId);
+    return sendSuccess(res, "Current super admin fetched successfully", admin);
+  } catch (error) {
+    return sendUnauthorized(res, error.message);
+  }
+};
+
 module.exports = {
   createSuperAdmin,
   loginSuperAdmin,
   logoutSuperAdmin,
+  me,
 };
