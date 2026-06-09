@@ -5,6 +5,7 @@ const UserModel = require("../models/UserModel");
 const RegistrationOtpModel = require("../models/RegistrationModel");
 const sendOtpMail = require("../utils/sendOtpMail");
 const activityLogService = require("./activityLog.service");
+const { uploadImageValue } = require("../utils/cloudinary");
 
 const safeCreateActivityLog = async (logData) => {
   try {
@@ -226,6 +227,12 @@ const updateTenantProfile = async (tenantId, data) => {
   if (data.companyName !== undefined) {
     payload.name = data.companyName;
     payload.slug = generateSlug(data.companyName);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(payload, "logo")) {
+    payload.logo = await uploadImageValue(payload.logo, {
+      folder: `estatepilot/tenants/${tenantId}`,
+    });
   }
 
   if (payload.slug) {

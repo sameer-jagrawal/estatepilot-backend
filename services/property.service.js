@@ -1,5 +1,6 @@
 const PropertyModel = require("../models/PropertyModel");
 const activityLogService = require("./activityLog.service");
+const { uploadImageList } = require("../utils/cloudinary");
 
 const safeCreateActivityLog = async (logData) => {
   try {
@@ -51,8 +52,13 @@ const createProperty = async (data) => {
     throw new Error("Property already exists");
   }
 
+  const images = await uploadImageList(data.images, {
+    tenantId: data.tenantId,
+  });
+
   const property = await PropertyModel.create({
     ...data,
+    images,
     propertyCode,
   });
 
@@ -143,10 +149,18 @@ const getPropertyById = async (tenantId, propertyId) => {
 const updateProperty = async (tenantId, propertyId, data) => {
   const hasStatusChange = Object.prototype.hasOwnProperty.call(data, "status");
   const userId = data.userId || null;
+  const hasImageUpdate = Object.prototype.hasOwnProperty.call(data, "images");
   delete data.tenantId;
   delete data.userId;
   delete data.createdBy;
   delete data.propertyCode;
+
+  if (hasImageUpdate) {
+    data.images = await uploadImageList(data.images, {
+      tenantId,
+      propertyId,
+    });
+  }
 
   const property = await PropertyModel.findOneAndUpdate(
     {

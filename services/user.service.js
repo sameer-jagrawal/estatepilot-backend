@@ -6,6 +6,7 @@ const TenantModel = require("../models/TenantModel");
 const UserVerificationOtpModel = require("../models/UserVerificationOtpModel");
 const activityLogService = require("./activityLog.service");
 const { sendOtpEmail } = require("../utils/email.service");
+const { uploadImageValue } = require("../utils/cloudinary");
 
 const OTP_EXPIRES_MS = 5 * 60 * 1000;
 const OTP_RESEND_MS = 60 * 1000;
@@ -245,10 +246,17 @@ const getUserById = async (tenantId, userId) => {
 
 const updateUser = async (tenantId, userId, data) => {
   const actorId = data.actorId || data.updatedBy || null;
+  const hasProfileImageUpdate = Object.prototype.hasOwnProperty.call(data, "profileImage");
   delete data.password;
   delete data.tenantId;
   delete data.actorId;
   delete data.updatedBy;
+
+  if (hasProfileImageUpdate) {
+    data.profileImage = await uploadImageValue(data.profileImage, {
+      folder: `estatepilot/users/${tenantId}/${userId}`,
+    });
+  }
 
   const user = await UserModel.findOneAndUpdate(
     {
