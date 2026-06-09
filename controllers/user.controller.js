@@ -73,14 +73,26 @@ const getUserById = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    if (req.user.role !== "owner" && req.user.role !== "manager") {
+    const isSelfUpdate = String(req.user.userId) === String(req.params.userId);
+
+    if (!isSelfUpdate && req.user.role !== "owner" && req.user.role !== "manager") {
       return sendForbidden(res, "You are not allowed to update users");
+    }
+
+    const payload = { ...req.body };
+
+    if (isSelfUpdate && req.user.role !== "owner" && req.user.role !== "manager") {
+      Object.keys(payload).forEach((key) => {
+        if (!["name", "phone", "profileImage"].includes(key)) {
+          delete payload[key];
+        }
+      });
     }
 
     const user = await userService.updateUser(
       req.user.tenantId,
       req.params.userId,
-      req.body
+      payload
     );
 
     return sendUpdate(res, "User updated successfully", user);

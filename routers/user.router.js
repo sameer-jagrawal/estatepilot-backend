@@ -47,7 +47,6 @@ router.post(
 router.patch(
   "/:userId",
   tenantAuth,
-  authorizeRoles("owner", "manager"),
   validate.userUpdate,
   userController.updateUser
 );

@@ -93,6 +93,7 @@ const validations = {
     optionalString("name"),
     body("email").optional({ nullable: true, checkFalsy: true }).isEmail().normalizeEmail().withMessage("Valid email is required"),
     phoneRule,
+    optionalString("profileImage"),
     body("role").optional().isIn(["owner", "manager", "agent"]).withMessage("Invalid role"),
   ]),
 
